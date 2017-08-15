@@ -6,8 +6,8 @@
 //time between counts is 64us
 //Must have a high logic level defined by 2.6V or greater
 #define readsPerRotation 1
-#define Average 1
-#define Send 15
+#define Average 5
+#define Send 1500
 
 
 void Timerreset(){
@@ -71,33 +71,32 @@ void loop() {
   PORTH |= 1<<PH4;
   PORTA &=~ 1<<PA1;
   PORTC &=~ 1<<PC7;
-  unsigned int toAverage[Average];
+  unsigned int toAverage[Average] = {0};
   float toSend[Send] = {0};
-  double totaltime = 0;
   int indexA, indexS; //keeps track of which is the next array value to fill
   byte error = 1; //stays as 1 until there is an error
   indexA = indexS = 0; //resets the indexers
-  Serial.println("waiting for start button");
+                                    //Serial.println("waiting for start button");
   while(PINH & 1<<PH3); //wait until the start button is pushed
-  delay(5);
-  Serial.println("starting");
+  delay(2);
+                            //Serial.println("starting");
   PORTH &=~ 1<<PH4;
   PORTA |= 1<<PA1;
   while(!(PINH & 1<<PH3)); //debounce the button
-  Serial.println("debounce");
-  while(PINA & 1<<PA0); //wait for the first reading
-  Serial.println("first reading");
-  while(!(PINA & 1<<PA0)); 
+                                                //Serial.println("debounce");
+  while(!(PINA & 1<<PA0)); //wait for the first reading
+  //Serial.println("first reading");
+  while(PINA & 1<<PA0); 
 
   Timerreset();
-  while(PINH & 1<<PH3 && error == 1){
+  while((PINH & 1<<PH3) && error == 1){
     //delay(5);
     if(!(PINA & 1<<PA0)){
       while(!(PINA & 1<<PA0));
       //Serial.println(TCNT1, DEC);
       if(indexA == Average){
         if(indexS == Send){
-          Serial.println("max data stored, stopping");
+          //Serial.println("max data stored, stopping");
           error = 0;
         }
         else{
@@ -106,16 +105,18 @@ void loop() {
             av+= toAverage[i];
           }
           toAverage[0] = TCNT1;
+          PORTC ^= 1<<PC7;
           av/=Average;
           toSend[indexS] = av;
           indexS++;
           indexA = 1;
+          Timerreset();
           
         }
       }
       else{
         toAverage[indexA] = TCNT1;
-        totaltime += toAverage[indexA];
+        //totaltime += toAverage[indexA];
         indexA++;
         PORTC ^= 1<<PC7;
         Timerreset();
@@ -126,15 +127,15 @@ void loop() {
       error = 0;
     }
   }
-  Serial.println("Stop data");
+  //Serial.println("Stop data");
   PORTA &=~1<<PA1;
   PORTC |= 1<<PC7;
-  for(int j = 0; j< Send; j++){
-    toSend[j] = readsPerRotation/(toSend[j]*64.0/1000000.0); //in rotations per seconds
+
+  for(int j = 0; j< indexS; j++){
+    toSend[j] = 60.0/(toSend[j]*128.0/1000000.0); //in rotations per seconds
     Serial.println(toSend[j]);
   }
-  Serial.println("done");
- 
-  Serial.println(totaltime*64/1000000.0);
+  //Serial.println("done");
+   Serial.println(-1); //stop data sending
   delay(10000);
 }
